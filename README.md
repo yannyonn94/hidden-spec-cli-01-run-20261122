@@ -22,6 +22,11 @@ model drifted their whitespace or indentation, and changes every file or none.
   wrong) line number; a SEARCH/REPLACE block fails `ambiguous` only when its
   old lines occur more than once at their tier; a V4A chunk walks a cursor
   from its anchor, so repeated blocks apply in order.
+- **Safety first (SPEC §10).** Every path an edit names is proven safe before
+  anything else about it is looked at — a V4A `Update File` with a `Move to:`
+  outside the tree reports `unsafe` even when the source file does not exist,
+  and the same ordering holds in the unified, SEARCH/REPLACE and JSON
+  formats. A missing source must never hide an unsafe destination.
 - **All or nothing.** Edits apply in patch order to the tree as earlier edits
   left it; a failed edit changes nothing, the edits after it still run, every
   failure is reported, and when any edit failed no file is written.
@@ -53,7 +58,8 @@ patch, format or parse error, one line, nothing written.
 
 ## Files
 
-- `main.ts` — the CLI, Node 22 and its standard library alone (900 lines).
+- `main.ts` — the CLI, Node 22 and its standard library alone (962 lines),
+  rewritten from `SPEC.md` with safety-first path checks in every format.
 - `runner.ts` — the kit's runner, kept as it is; a trial hands over to it.
 - `check.ts` — the practice set on your own machine.
 - `SPEC.md` — the whole specification.
@@ -81,3 +87,16 @@ Local grading through the kit's own trial runner (`grade-local --driver
 process`, practice trial-0): score **1000**, 100/100 checks passed
 (unified 30, search_replace 20, v4a 20, json 15, cli 15), working 1,
 replay reproduced byte for byte.
+
+Hand-built probes for the §10 safety-first fix, all observed passing:
+
+- V4A move with missing source and unsafe destination → `error: unsafe
+  ../evil.txt`, exit 1 (also when the source exists).
+- V4A move to a safe path, source missing → `error: missing gone.txt`.
+- V4A move to a safe path, source and destination both exist →
+  `error: exists dest.txt`.
+- V4A update + move to a new safe path → `R gone.txt -> new.txt`, exit 0.
+- Unified-diff move with unsafe new path and missing old path → `unsafe`
+  first; SEARCH/REPLACE with an unsafe path → `unsafe`, not
+  missing/no-match.
+- Full practice set run twice, byte-identical output.
